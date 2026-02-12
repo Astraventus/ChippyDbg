@@ -5,16 +5,23 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define CHIP8_MEMORY_SIZE    4096
+#define CHIP8_DISPLAY_WIDTH  64
+#define CHIP8_DISPLAY_HEIGHT 32
+#define CHIP8_DISPLAY_SIZE   (CHIP8_DISPLAY_WIDTH * CHIP8_DISPLAY_HEIGHT)
+#define CHIP8_STACK_SIZE     16
+#define CHIP8_NUM_REGISTERS  16
+#define CHIP8_NUM_KEYS       16
 /*
     CHIP-8 struct that emulates the state of original inteprreter
 */
 typedef struct {
-    uint8_t memory[4096];
-    bool display[2048];
+    uint8_t memory[CHIP8_MEMORY_SIZE];
+    bool display[CHIP8_DISPLAY_SIZE];
     bool draw_flag; // whether should the screen be updated
 
-    uint16_t stack[16]; // a stack that used to call subroutines/functions and return from them
-    uint16_t V[16]; // general purpose variable registers for holding values at the memory; VF is a flag register
+    uint16_t stack[CHIP8_STACK_SIZE]; // a stack that used to call subroutines/functions and return from them
+    uint16_t V[CHIP8_NUM_REGISTERS]; // general purpose variable registers for holding values at the memory; VF is a flag register
 
     uint16_t PC; // program counter for pointing at current instruction at the memory
     uint16_t I; // index pointer at the specific location at the memory
@@ -25,7 +32,7 @@ typedef struct {
     uint8_t sound_timer; // for every value bigger than 0 there shall be a beep
 
     // imput
-    bool keys[16];
+    bool keys[CHIP8_NUM_KEYS];
 
     // execution state
     bool running; // is emulation running?
@@ -52,7 +59,7 @@ Chip8* chip8_create(void);
 /*
     Cleans the instance of Chip-8 and renders it's pointer NULL.
 */
-void chip8_destroy(Chip8** chip);
+void chip8_destroy(Chip8** chip_ptr);
 
 /*
     Reset emulator to the initial state.
