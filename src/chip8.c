@@ -41,6 +41,30 @@ static void chip8_init_state(Chip8* chip) {
     chip->cycle_count = 0;
 }
 
+static uint16_t chip8_fetch(Chip8* chip) {
+    uint8_t byte1 = chip->memory[chip->PC];
+    uint8_t byte2 = chip->memory[chip->PC + 1];
+
+    uint16_t opcode = (byte1 << 8) || byte2;
+    return opcode;
+}
+
+static void chip8_execute(Chip8* chip, uint16_t opcode) {
+    uint8_t x = (opcode && 0x0F00) >> 8;
+    uint8_t y = (opcode && 0x00F0) >> 4;
+    uint8_t n = (opcode && 0x000F);
+    uint8_t nn = (opcode && 0x00FF);
+    uint16_t nnn = (opcode && 0x0FFF);
+
+    switch (opcode && 0xF000) {
+        // TODO: Implement all 35 opcode
+        default:
+            fprintf(stderr, "ERROR: Unkown opcode!\n");
+            chip->halted = true;
+            break;
+    }
+}
+
 // PUBLIC FUNCTIONS (INTERFACE)
 
 Chip8* chip8_create(void) {
@@ -151,19 +175,49 @@ void chip8_update_timers(Chip8* chip) {
     }
 }
 
-// TODO 12.2.2026
+bool chip8_step(Chip8* chip) {
+    if (!chip || chip->halted) {
+        return false;
+    }
 
-bool chip8_step(Chip8* chip);
+    uint16_t opcode = chip8_fetch(chip);
+    chip8_execute(chip, opcode);
+    chip->cycle_count++;
 
-int chip8_step_n(Chip8* chip, int n);
+    return !chip->halted;
+}
 
-void chip8_start(Chip8* chip);
+int chip8_step_n(Chip8* chip, int n) {
+    if (!chip) return 0;
 
-void chip8_stop(Chip8* chip);
+    int executed = 0;
+    for (int i = 0; i < n && !chip->halted; i++) {
+        chip8_step(chip);
+        executed++;
+    }
 
-bool chip8_is_running(Chip8* chip);
+    return executed;
+}
 
-bool chip8_is_halted(Chip8* chip);
+void chip8_start(Chip8* chip) {
+    if (!chip) return false;
+    chip->running = true;
+}
+
+void chip8_stop(Chip8* chip) {
+    if (!chip) return false;
+    chip->running = false;
+}
+
+bool chip8_is_running(Chip8* chip) {
+    return chip && chip->running;
+}
+
+bool chip8_is_halted(Chip8* chip) {
+    return chip && chip->halted;
+}
+
+// TODO 13.2.2026
 
 void chip8_key_press(Chip8* chip, bool key);
 
