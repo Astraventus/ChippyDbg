@@ -134,11 +134,11 @@ bool chip8_is_halted(Chip8* chip);
 
 // shall include key pressed, key released, is key pressed
 
-void chip8_key_press(Chip8* chip, bool key);
+void chip8_key_press(Chip8* chip, uint8_t key);
 
-void chip8_key_release(Chip8* chip, bool key);
+void chip8_key_release(Chip8* chip, uint8_t key);
 
-void chip8_is_key_pressed(Chip8* chip, bool key);
+bool chip8_is_key_pressed(Chip8* chip, uint8_t key);
 
 // STATE QUERIES FOR UI/DEBUGGING
 
@@ -192,7 +192,7 @@ void chip8_write_memory(Chip8* chip, uint16_t address, uint8_t byte);
 /*
     Reads the combined two bytes (big-endian) from this and next address.
 */
-uint16_t chip8_read_opcode(Chip8* chip, uint16_t addres);
+uint16_t chip8_read_opcode(Chip8* chip, uint16_t address);
 
 // DISSASEMBLY
 

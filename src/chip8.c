@@ -217,15 +217,23 @@ bool chip8_is_halted(Chip8* chip) {
     return chip && chip->halted;
 }
 
-// TODO 13.2.2026
+void chip8_key_press(Chip8* chip, uint8_t key) {
+    if (!chip || key >= CHIP8_NUM_KEYS) return;
 
-void chip8_key_press(Chip8* chip, bool key);
+    chip->keys[key] = true;
+}
 
-void chip8_key_release(Chip8* chip, bool key);
+void chip8_key_release(Chip8* chip, uint8_t key) {
+    if (!chip || key >= CHIP8_NUM_KEYS) return;
 
-void chip8_is_key_pressed(Chip8* chip, bool key);
+    chip->keys[key] = false;
+}
 
-// END TODO
+bool chip8_is_key_pressed(Chip8* chip, uint8_t key) {
+    if (!chip || key >= CHIP8_NUM_KEYS) return false;
+
+    return chip->keys[key];
+}
 
 uint16_t chip8_get_pc(Chip8* chip) {
     return chip ? chip->PC : 0;
@@ -283,13 +291,28 @@ bool chip8_should_draw(Chip8* chip) {
     return should_draw;
 }
 
-// TODO 12.02.2026
+uint8_t chip8_read_memory(Chip8* chip, uint16_t address) {
+    if (!chip || address >= CHIP8_MEMORY_SIZE) return 0;
 
-uint8_t chip8_read_memory(Chip8* chip, uint16_t address);
+    return chip->memory[address];
+}
 
-void chip8_write_memory(Chip8* chip, uint16_t address, uint8_t byte);
+void chip8_write_memory(Chip8* chip, uint16_t address, uint8_t byte) {
+    if (!chip || address >= CHIP8_MEMORY_SIZE) return 0;
 
-uint16_t chip8_read_opcode(Chip8* chip, uint16_t addres);
+    chip->memory[address] = byte;
+}
+
+uint16_t chip8_read_opcode(Chip8* chip, uint16_t address) {
+    if (!chip || address >= CHIP8_MEMORY_SIZE) return 0;
+
+    uint8_t byte1 = chip->memory[address];
+    uint8_t byte2 = chip->memory[address + 1];
+    
+    return (byte1 << 8) || byte2;
+}
+
+// TODO 14.02.2026
 
 void chip8_disassemble(Chip8* chip, uint16_t address, char* buffer, size_t bufsize);
 
