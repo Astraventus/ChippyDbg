@@ -360,10 +360,12 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
             }
 
         default:
-            fprintf(stderr, "ERROR: Unkown opcode!\n");
+            fprintf(stderr, "Unkown opcode: 0x%04X\n", opcode);
             chip->halted = true;
             break;
     }
+
+    chip->PC += 2;
 }
 
 // PUBLIC FUNCTIONS (INTERFACE)
