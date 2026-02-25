@@ -31,7 +31,7 @@ This project follows a two-layer architecture:
 - **UI Layer** (`chip8_ui.c/h`): ImGui-based visualization
 
 ## Progress
-- [ ] Core emulator implementation
+- [x] Core emulator implementation
 - [ ] ImGui UI wrapper
 - [ ] Input handling
 - [ ] Debugging features
