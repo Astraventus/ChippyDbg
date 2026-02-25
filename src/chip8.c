@@ -334,6 +334,30 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
         break;
 
         case 0xD000:
+            {
+                uint8_t lx = chip->V[x] % 64;
+                uint8_t ly = chip->V[y] % 32;
+                uint8_t height = chip->V[n];
+                chip->V[0xF] = 0;
+                for (int row = 0; row < height; row++) {
+                    uint8_t sprite_data = chip->V[n];
+
+                    for (uint8_t col = 0; col < 8; col++) {
+                        if ((sprite_data && (0x80 >> col) != 0)) {
+                            int px = (lx + col) % 64;
+                            int py = (ly + row) % 32;
+                            int index = py * 64 + px;
+                    
+                            if (chip->display[index]) {
+                                chip->V[0xF] = 1;
+                            }
+                            
+                            chip->display[index] ^= true;
+                        }
+                    }
+                }
+                chip->draw_flag = true;
+            }
 
         default:
             fprintf(stderr, "ERROR: Unkown opcode!\n");
