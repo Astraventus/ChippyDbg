@@ -45,16 +45,16 @@ static uint16_t chip8_fetch(Chip8* chip) {
     uint8_t byte1 = chip->memory[chip->PC];
     uint8_t byte2 = chip->memory[chip->PC + 1];
 
-    uint16_t opcode = (byte1 << 8) || byte2;
+    uint16_t opcode = (byte1 << 8) | byte2;
     return opcode;
 }
 
 static void chip8_execute(Chip8* chip, uint16_t opcode) {
-    uint8_t x = (opcode && 0x0F00) >> 8;
-    uint8_t y = (opcode && 0x00F0) >> 4;
-    uint8_t n = (opcode && 0x000F);
-    uint8_t nn = (opcode && 0x00FF);
-    uint16_t nnn = (opcode && 0x0FFF);
+    uint8_t x = (opcode & 0x0F00) >> 8;
+    uint8_t y = (opcode & 0x00F0) >> 4;
+    uint8_t n = (opcode & 0x000F);
+    uint8_t nn = (opcode & 0x00FF);
+    uint16_t nnn = (opcode & 0x0FFF);
 
     switch (opcode && 0xF000) {
         // TODO: Implement all 35 opcode
@@ -306,8 +306,8 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
             // Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2
             uint8_t value = chip->V[x];
             chip->memory[chip->I] = value / 100; // hundreds
-            chip->memory[chip->I] = (value / 10) % 10; // tens
-            chip->memory[chip->I] = value % 10; // ones
+            chip->memory[chip->I + 1] = (value / 10) % 10; // tens
+            chip->memory[chip->I + 2] = value % 10; // ones
             break;
 
             case 0x55:
@@ -340,10 +340,10 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
                 uint8_t height = chip->V[n];
                 chip->V[0xF] = 0;
                 for (int row = 0; row < height; row++) {
-                    uint8_t sprite_data = chip->V[n];
+                    uint8_t sprite_byte = chip->memory[chip->I + row];
 
                     for (uint8_t col = 0; col < 8; col++) {
-                        if ((sprite_data && (0x80 >> col) != 0)) {
+                        if ((sprite_byte && (0x80 >> col) != 0)) {
                             int px = (lx + col) % 64;
                             int py = (ly + row) % 32;
                             int index = py * 64 + px;
@@ -396,8 +396,8 @@ void chip8_reset(Chip8* chip) {
         return;
     }
 
-    const char rom_path_temp[256];
-    strncpy(rom_path_temp, chip->rom_path, sizeof(rom_path_temp));
+    char rom_path_temp[256];
+    strncpy(rom_path_temp, chip->rom_path, sizeof(rom_path_temp) - 1);
     size_t rom_size_temp = chip->rom_size;
 
     chip8_init_state(chip);
@@ -615,8 +615,202 @@ uint16_t chip8_read_opcode(Chip8* chip, uint16_t address) {
     return (byte1 << 8) || byte2;
 }
 
-// TODO 14.02.2026
-
-void chip8_disassemble(Chip8* chip, uint16_t address, char* buffer, size_t bufsize);
-
-// END TODO
+void chip8_disassemble(Chip8* chip, uint16_t address, char* buffer, size_t bufsize) {
+    if (!chip || !buffer || bufsize == 0) {
+        if (buffer && bufsize > 0) buffer[0] = '\0';
+        return;
+    }
+    
+    // Bounds check - need at least 2 bytes for an opcode
+    if (address >= CHIP8_MEMORY_SIZE - 1) {
+        snprintf(buffer, bufsize, "0x0000: OUT_OF_BOUNDS");
+        return;
+    }
+    
+    uint16_t opcode = chip8_read_opcode(chip, address);
+    
+    // Extract common components
+    uint8_t x = (opcode & 0x0F00) >> 8;
+    uint8_t y = (opcode & 0x00F0) >> 4;
+    uint8_t n = (opcode & 0x000F);
+    uint8_t nn = (opcode & 0x00FF);
+    uint16_t nnn = (opcode & 0x0FFF);
+    
+    switch (opcode & 0xF000) {
+        // === 0xxx: System & Flow Control ===
+        case 0x0000:
+            switch (opcode & 0x00FF) {
+                case 0x00E0:
+                    snprintf(buffer, bufsize, "0x%04X: CLS", opcode);
+                    break;
+                case 0x00EE:
+                    snprintf(buffer, bufsize, "0x%04X: RET", opcode);
+                    break;
+                default:
+                    // 0NNN - deprecated SYS call
+                    snprintf(buffer, bufsize, "0x%04X: SYS 0x%03X", opcode, nnn);
+                    break;
+            }
+            break;
+            
+        // === 1xxx: Jump ===
+        case 0x1000:
+            snprintf(buffer, bufsize, "0x%04X: JP 0x%03X", opcode, nnn);
+            break;
+            
+        // === 2xxx: Call Subroutine ===
+        case 0x2000:
+            snprintf(buffer, bufsize, "0x%04X: CALL 0x%03X", opcode, nnn);
+            break;
+            
+        // === 3xxx: Skip if Equal (Immediate) ===
+        case 0x3000:
+            snprintf(buffer, bufsize, "0x%04X: SE V%X, 0x%02X", opcode, x, nn);
+            break;
+            
+        // === 4xxx: Skip if Not Equal (Immediate) ===
+        case 0x4000:
+            snprintf(buffer, bufsize, "0x%04X: SNE V%X, 0x%02X", opcode, x, nn);
+            break;
+            
+        // === 5xxx: Skip if Equal (Register) ===
+        case 0x5000:
+            if ((opcode & 0x000F) == 0) {
+                snprintf(buffer, bufsize, "0x%04X: SE V%X, V%X", opcode, x, y);
+            } else {
+                snprintf(buffer, bufsize, "0x%04X: UNKNOWN_5XY%X", opcode, n);
+            }
+            break;
+            
+        // === 6xxx: Load Immediate ===
+        case 0x6000:
+            snprintf(buffer, bufsize, "0x%04X: LD V%X, 0x%02X", opcode, x, nn);
+            break;
+            
+        // === 7xxx: Add Immediate ===
+        case 0x7000:
+            snprintf(buffer, bufsize, "0x%04X: ADD V%X, 0x%02X", opcode, x, nn);
+            break;
+            
+        // === 8xxx: ALU Operations ===
+        case 0x8000:
+            switch (opcode & 0x000F) {
+                case 0x0:
+                    snprintf(buffer, bufsize, "0x%04X: LD V%X, V%X", opcode, x, y);
+                    break;
+                case 0x1:
+                    snprintf(buffer, bufsize, "0x%04X: OR V%X, V%X", opcode, x, y);
+                    break;
+                case 0x2:
+                    snprintf(buffer, bufsize, "0x%04X: AND V%X, V%X", opcode, x, y);
+                    break;
+                case 0x3:
+                    snprintf(buffer, bufsize, "0x%04X: XOR V%X, V%X", opcode, x, y);
+                    break;
+                case 0x4:
+                    snprintf(buffer, bufsize, "0x%04X: ADD V%X, V%X", opcode, x, y);
+                    break;
+                case 0x5:
+                    snprintf(buffer, bufsize, "0x%04X: SUB V%X, V%X", opcode, x, y);
+                    break;
+                case 0x6:
+                    snprintf(buffer, bufsize, "0x%04X: SHR V%X {, V%X}", opcode, x, y);
+                    break;
+                case 0x7:
+                    snprintf(buffer, bufsize, "0x%04X: SUBN V%X, V%X", opcode, x, y);
+                    break;
+                case 0xE:
+                    snprintf(buffer, bufsize, "0x%04X: SHL V%X {, V%X}", opcode, x, y);
+                    break;
+                default:
+                    snprintf(buffer, bufsize, "0x%04X: UNKNOWN_8XY%X", opcode, n);
+                    break;
+            }
+            break;
+            
+        // === 9xxx: Skip if Not Equal (Register) ===
+        case 0x9000:
+            if ((opcode & 0x000F) == 0) {
+                snprintf(buffer, bufsize, "0x%04X: SNE V%X, V%X", opcode, x, y);
+            } else {
+                snprintf(buffer, bufsize, "0x%04X: UNKNOWN_9XY%X", opcode, n);
+            }
+            break;
+            
+        // === Axxx: Load Index ===
+        case 0xA000:
+            snprintf(buffer, bufsize, "0x%04X: LD I, 0x%03X", opcode, nnn);
+            break;
+            
+        // === Bxxx: Jump with Offset ===
+        case 0xB000:
+            snprintf(buffer, bufsize, "0x%04X: JP V0, 0x%03X", opcode, nnn);
+            break;
+            
+        // === Cxxx: Random ===
+        case 0xC000:
+            snprintf(buffer, bufsize, "0x%04X: RND V%X, 0x%02X", opcode, x, nn);
+            break;
+            
+        // === Dxxx: Draw Sprite ===
+        case 0xD000:
+            snprintf(buffer, bufsize, "0x%04X: DRW V%X, V%X, 0x%X", opcode, x, y, n);
+            break;
+            
+        // === Exxx: Keypad Skip ===
+        case 0xE000:
+            switch (opcode & 0x00FF) {
+                case 0x9E:
+                    snprintf(buffer, bufsize, "0x%04X: SKP V%X", opcode, x);
+                    break;
+                case 0xA1:
+                    snprintf(buffer, bufsize, "0x%04X: SKNP V%X", opcode, x);
+                    break;
+                default:
+                    snprintf(buffer, bufsize, "0x%04X: UNKNOWN_EX%X", opcode, nn);
+                    break;
+            }
+            break;
+            
+        // === Fxxx: Misc Operations ===
+        case 0xF000:
+            switch (opcode & 0x00FF) {
+                case 0x07:
+                    snprintf(buffer, bufsize, "0x%04X: LD V%X, DT", opcode, x);
+                    break;
+                case 0x0A:
+                    snprintf(buffer, bufsize, "0x%04X: LD V%X, K", opcode, x);
+                    break;
+                case 0x15:
+                    snprintf(buffer, bufsize, "0x%04X: LD DT, V%X", opcode, x);
+                    break;
+                case 0x18:
+                    snprintf(buffer, bufsize, "0x%04X: LD ST, V%X", opcode, x);
+                    break;
+                case 0x1E:
+                    snprintf(buffer, bufsize, "0x%04X: ADD I, V%X", opcode, x);
+                    break;
+                case 0x29:
+                    snprintf(buffer, bufsize, "0x%04X: LD F, V%X", opcode, x);
+                    break;
+                case 0x33:
+                    snprintf(buffer, bufsize, "0x%04X: LD B, V%X", opcode, x);
+                    break;
+                case 0x55:
+                    snprintf(buffer, bufsize, "0x%04X: LD [I], V%X", opcode, x);
+                    break;
+                case 0x65:
+                    snprintf(buffer, bufsize, "0x%04X: LD V%X, [I]", opcode, x);
+                    break;
+                default:
+                    snprintf(buffer, bufsize, "0x%04X: UNKNOWN_FX%X", opcode, nn);
+                    break;
+            }
+            break;
+            
+        // === Unknown ===
+        default:
+            snprintf(buffer, bufsize, "0x%04X: UNKNOWN", opcode);
+            break;
+    }
+}
