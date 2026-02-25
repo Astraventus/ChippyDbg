@@ -58,6 +58,283 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
 
     switch (opcode && 0xF000) {
         // TODO: Implement all 35 opcode
+
+        // === System & Flow Control (0xxx) ===
+        case 0x0000:
+            switch (opcode && 0x00FF) {
+                case 0x00E0:
+                // Clear the screen
+                memset(chip->display, 0, sizeof(chip->display));
+                chip->draw_flag = true;
+                break;
+
+                case 0x00EE:
+                // Return from subroutine
+                // Pop adress from stack and jump to it
+                if (chip->SP == 0) {
+                    fprintf(stderr, "ERROR: Stack Underflow!\n");
+                    chip->halted = true;
+                    break;
+                }
+                chip->SP--;
+                chip->PC = chip->stack[chip->SP];
+                return; 
+
+                default: 
+                /*
+                0x0NNN case, 
+                existed for calling original RCA1802 routines  
+                Now typically deprecated in modern emulators
+                */
+                fprintf(stderr, "Warning: 0NNN machine code call ignored: 0x%04X\n", opcode);
+                break;
+            }
+        
+        // === Jumps & Calls (1xxx, 2xxx, Bxxx) ===
+        case 0x1000:
+        // Jump to address NNN
+        chip->PC = nnn;
+        return;
+
+        case 0x2000:
+        // Execute subroutine starting at address NNN
+        if (chip->SP >= 16) {
+            fprintf(stderr, "ERROR: Stack Overflow!\n");
+            chip->halted = true;
+            break;
+        }
+
+        chip->stack[chip->SP] = chip->PC + 2;
+        chip->SP++;
+        chip->PC = nnn;
+        return;
+
+        case 0xB000:
+        // Original CHIP-8 uses V0; some modern variants use VX. Most ROMs expect V0.
+        // Jump to address NNN + V0
+        chip->PC = nnn + chip->V[0];
+        return;
+
+        //  === Skip Instructions (3xxx, 4xxx, 5xxx, 9xxx, Exxx) ===
+
+        case 0x3000:
+        // Skip the following instruction if the value of register VX equals NN
+        if (chip->V[x] == nn) {
+            chip->PC += 2;
+        }
+        break;
+
+        case 0x4000:
+        // Skip the following instruction if the value of register VX is not equal to NN
+        if (chip->V[x] != nn) {
+            chip->PC += 2;
+        }
+        break;
+
+        case 0x5000:
+        // Skip the following instruction if the value of register VX is equal to the value of register VY
+        if ((opcode && 0x000F) == 0) {
+            if (chip->V[x] == chip->V[y]) {
+                chip->PC += 2;
+            }
+        }
+        break;
+
+        case 0x9000:
+        // Skip the following instruction if the value of register VX is not equal to the value of register VY
+        if ((opcode && 0x000F) == 0) {
+            if (chip->V[x] != chip->V[y]) {
+                chip->PC += 2;
+            }
+        }
+        break;
+
+        case 0xE000:
+        switch (nn) {
+            // Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed
+            case 0x9E:
+            if (chip->V[x] < 16 && chip->keys[chip->V[x]]) {
+                chip->PC += 2;
+            }
+            break;
+            
+            // Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed
+            case 0xA1:
+            if (chip->V[x] < 16 && !chip->keys[chip->V[x]]) {
+                chip->PC += 2;
+            }
+            break;
+        }
+        break;
+
+        // === Register Operations (6xxx, 7xxx, 8xxx) ===
+
+        case 0x6000:
+        // Store number NN in register VX
+        chip->V[x] = nn;
+        break;
+
+        case 0x7000:
+        // Add the value NN to register VX
+        chip->V[x] += nn;
+        break;
+
+        // === ALU Operations (8XYn) ===
+
+        case 0x8000:
+        switch (n) {
+            case 0x0:
+            // Store the value of register VY in register VX
+            chip->V[x] = chip->V[y];
+            break;
+
+            case 0x1:
+            // Set VX to VX OR VY
+            chip->V[x] |= chip->V[y];
+            chip->V[0xF] = 0;  // VF reset (quirk)
+            break;
+
+            case 0x2:
+            // Set VX to VX AND VY
+            chip->V[x] &= chip->V[y];
+            chip->V[0xF] = 0;  // VF reset (quirk)
+            break;
+
+            case 0x3:
+            // Set VX to VX XOR VY
+            chip->V[x] ^= chip->V[y];
+            chip->V[0xF] = 0;  // VF reset (quirk)
+            break;
+
+
+            case 0x4:
+            // Add the value of register VY to register VX
+            // Set VF to 01 if a carry occurs
+            // Set VF to 00 if a carry does not occur
+            uint16_t sum = chip->V[x] + chip->V[y];
+            chip->V[0xF] = (sum > 0xFF) ? 1 : 0;
+            chip->V[x] = sum & 0xFF; 
+            break;
+
+            case 0x5:
+            // Subtract the value of register VY from register VX
+            // Set VF to 00 if a borrow occurs
+            // Set VF to 01 if a borrow does not occur
+            chip->V[0xF] = (chip->V[x] >= chip->V[y]) ? 1 : 0;  // NOT borrow
+            chip->V[x] -= chip->V[y];
+            break;
+
+            case 0x6:
+            // Store the value of register VY shifted right one bit in register VX¹
+            // Set register VF to the least significant bit prior to the shift
+            // VY is unchanged
+            chip->V[0xF] = chip->V[y] & 0x01;
+            chip->V[x] = chip->V[y] >> 1;
+            break;
+
+            case 0x7:
+            // Set register VX to the value of VY minus VX
+            // Set VF to 00 if a borrow occurs
+            // Set VF to 01 if a borrow does not occur
+            chip->V[0xF] = (chip->V[y] >= chip->V[x]) ? 1 : 0;  // NOT borrow
+            chip->V[x] = chip->V[y] - chip->V[x];
+            break;
+
+
+            case 0xE:
+            // Store the value of register VY shifted left one bit in register VX¹
+            // Set register VF to the most significant bit prior to the shift
+            // VY is unchanged
+            chip->V[0xF] = (chip->V[y] & 0x80) >> 7;  // MSB before shift
+            chip->V[x] = chip->V[y] << 1;
+            break;
+        }
+        
+        // === Memory Operations (Axxx, Fxxx) ===
+
+        case 0xA000:
+        // Store memory address NNN in register I
+        chip->I = nnn;
+        break;
+
+        case 0xF000:
+        switch (nn) {
+            case 0x07:
+            // Store the current value of the delay timer in register VX
+            chip->V[x] = chip->delay_timer;
+            break;
+
+            // === Input (FX0A) ===
+            case 0x0A:
+            // Wait for a keypress and store the result in register VX
+            bool key_pressed = false;
+            for (uint8_t i = 0; i < 16; i++) {
+                if (chip->keys[i]) {
+                    chip->V[x] = i;
+                    key_pressed = true;
+                    break;
+                }
+
+                if (!key_pressed) {
+                    chip->PC -= 2;
+                }
+            }
+            break;
+            
+
+            case 0x15:
+            // Set the delay timer to the value of register VX
+            chip->delay_timer = chip->V[x];
+            break;
+
+            case 0x18:
+            // Set the sound timer to the value of register VX
+            chip->sound_timer = chip->V[x];
+            break;
+
+            case 0x1E:
+            // Add the value stored in register VX to register I
+            chip->I += chip->V[x];
+            break;
+
+            case 0x29:
+            // Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
+            chip->I = (chip->V[x] & 0x0F) * 5;
+            break;
+
+            case 0x33:
+            // Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2
+            uint8_t value = chip->V[x];
+            chip->memory[chip->I] = value / 100; // hundreds
+            chip->memory[chip->I] = (value / 10) % 10; // tens
+            chip->memory[chip->I] = value % 10; // ones
+            break;
+
+            case 0x55:
+            // Store the values of registers V0 to VX inclusive in memory starting at address I. I is set to I + X + 1 after operation
+            for (uint8_t i = 0; i <= x; i++) {
+                chip->memory[chip->I + i] = chip->V[i];
+            }
+            chip->I += x + 1;
+            break;
+
+            case 0x65:
+            // Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation
+            for (uint8_t i = 0; i <= x; i++) {
+                chip->V[i] = chip->memory[chip->I + i];
+            }
+            chip->I += x + 1;
+            break;
+
+        }
+
+        case 0xC000:
+        // Set VX to a random number with a mask of NN
+        chip->V[x] = (rand() % 256) & nn;
+        break;
+
+        case 0xD000:
+
         default:
             fprintf(stderr, "ERROR: Unkown opcode!\n");
             chip->halted = true;
