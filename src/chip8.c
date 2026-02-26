@@ -1,11 +1,11 @@
-#include "chip8.h"
+#include "../include/chip8.h"
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
 
 // FONTS
 
-static const uint8_t FONT_DATA[80] = {
+static uint8_t FONT_DATA[80] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -56,12 +56,12 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
     uint8_t nn = (opcode & 0x00FF);
     uint16_t nnn = (opcode & 0x0FFF);
 
-    switch (opcode && 0xF000) {
+    switch (opcode & 0xF000) {
         // TODO: Implement all 35 opcode
 
         // === System & Flow Control (0xxx) ===
         case 0x0000:
-            switch (opcode && 0x00FF) {
+            switch (opcode & 0x00FF) {
                 case 0x00E0:
                 // Clear the screen
                 memset(chip->display, 0, sizeof(chip->display));
@@ -89,6 +89,7 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
                 fprintf(stderr, "Warning: 0NNN machine code call ignored: 0x%04X\n", opcode);
                 break;
             }
+        break;
         
         // === Jumps & Calls (1xxx, 2xxx, Bxxx) ===
         case 0x1000:
@@ -133,7 +134,7 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
 
         case 0x5000:
         // Skip the following instruction if the value of register VX is equal to the value of register VY
-        if ((opcode && 0x000F) == 0) {
+        if ((opcode & 0x000F) == 0) {
             if (chip->V[x] == chip->V[y]) {
                 chip->PC += 2;
             }
@@ -142,7 +143,7 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
 
         case 0x9000:
         // Skip the following instruction if the value of register VX is not equal to the value of register VY
-        if ((opcode && 0x000F) == 0) {
+        if ((opcode & 0x000F) == 0) {
             if (chip->V[x] != chip->V[y]) {
                 chip->PC += 2;
             }
@@ -249,6 +250,7 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
             chip->V[x] = chip->V[y] << 1;
             break;
         }
+        break;
         
         // === Memory Operations (Axxx, Fxxx) ===
 
@@ -274,11 +276,10 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
                     key_pressed = true;
                     break;
                 }
-
-                if (!key_pressed) {
+            }
+            if (!key_pressed) {
                     chip->PC -= 2;
                 }
-            }
             break;
             
 
@@ -327,6 +328,7 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
             break;
 
         }
+        break;
 
         case 0xC000:
         // Set VX to a random number with a mask of NN
@@ -337,13 +339,13 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
             {
                 uint8_t lx = chip->V[x] % 64;
                 uint8_t ly = chip->V[y] % 32;
-                uint8_t height = chip->V[n];
+                uint8_t height = n;
                 chip->V[0xF] = 0;
                 for (int row = 0; row < height; row++) {
                     uint8_t sprite_byte = chip->memory[chip->I + row];
 
                     for (uint8_t col = 0; col < 8; col++) {
-                        if ((sprite_byte && (0x80 >> col) != 0)) {
+                        if ((sprite_byte & (0x80 >> col))) {
                             int px = (lx + col) % 64;
                             int py = (ly + row) % 32;
                             int index = py * 64 + px;
@@ -358,6 +360,8 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
                 }
                 chip->draw_flag = true;
             }
+        break;
+        
 
         default:
             fprintf(stderr, "Unkown opcode: 0x%04X\n", opcode);
@@ -429,7 +433,7 @@ bool chip8_load_rom(Chip8* chip, const char* path) {
     fseek(file, 0, SEEK_SET);
     
     // check the size of rom compared to maximal permitted size in the memory
-    const long max_size = chip->memory - 0x200;
+    const long max_size = CHIP8_MEMORY_SIZE - 0x200;
     if (file_size > max_size) {
         fprintf(stderr, "ERROR: ROM too large: %ld bytes (expected no more than %ld bytes)\n", file_size, max_size);
         return false;
@@ -503,12 +507,12 @@ int chip8_step_n(Chip8* chip, int n) {
 }
 
 void chip8_start(Chip8* chip) {
-    if (!chip) return false;
+    if (!chip) return;
     chip->running = true;
 }
 
 void chip8_stop(Chip8* chip) {
-    if (!chip) return false;
+    if (!chip) return;
     chip->running = false;
 }
 
@@ -601,7 +605,7 @@ uint8_t chip8_read_memory(Chip8* chip, uint16_t address) {
 }
 
 void chip8_write_memory(Chip8* chip, uint16_t address, uint8_t byte) {
-    if (!chip || address >= CHIP8_MEMORY_SIZE) return 0;
+    if (!chip || address >= CHIP8_MEMORY_SIZE) return;
 
     chip->memory[address] = byte;
 }
@@ -612,7 +616,7 @@ uint16_t chip8_read_opcode(Chip8* chip, uint16_t address) {
     uint8_t byte1 = chip->memory[address];
     uint8_t byte2 = chip->memory[address + 1];
     
-    return (byte1 << 8) || byte2;
+    return (byte1 << 8) | byte2;
 }
 
 void chip8_disassemble(Chip8* chip, uint16_t address, char* buffer, size_t bufsize) {
