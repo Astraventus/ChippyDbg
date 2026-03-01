@@ -341,23 +341,25 @@ static void chip8_execute(Chip8* chip, uint16_t opcode) {
                 uint8_t ly = chip->V[y] % 32;
                 uint8_t height = n;
                 chip->V[0xF] = 0;
-                for (int row = 0; row < height; row++) {
-                    uint8_t sprite_byte = chip->memory[chip->I + row];
+
+                for (uint8_t row = 0; row < height; row++) {
+                    uint16_t sprite_byte = chip->memory[chip->I + row];
 
                     for (uint8_t col = 0; col < 8; col++) {
-                        if ((sprite_byte & (0x80 >> col))) {
-                            int px = (lx + col) % 64;
-                            int py = (ly + row) % 32;
-                            int index = py * 64 + px;
-                    
+                        if (sprite_byte & (0x80 >> col)) {
+                            uint8_t px = (lx + col) % 64;
+                            uint8_t py = (ly + row) % 32;
+                            uint16_t index = py * CHIP8_DISPLAY_WIDTH + px;
+
                             if (chip->display[index]) {
                                 chip->V[0xF] = 1;
                             }
-                            
-                            chip->display[index] ^= true;
+
+                            chip->display[index] ^= 1;
                         }
                     }
                 }
+
                 chip->draw_flag = true;
             }
         break;
