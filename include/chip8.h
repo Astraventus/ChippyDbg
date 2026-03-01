@@ -12,6 +12,7 @@
 #define CHIP8_STACK_SIZE     16
 #define CHIP8_NUM_REGISTERS  16
 #define CHIP8_NUM_KEYS       16
+#define CHIP8_DISASM_BUFSIZE 64
 /*
     CHIP-8 struct that emulates the state of original inteprreter
 */
@@ -40,7 +41,7 @@ typedef struct {
     uint64_t cycle_count; // the number of CPU cycles executed 
 
     // rom info
-    const char rom_path[256];
+    char rom_path[256];
     size_t rom_size; 
 
 } Chip8;

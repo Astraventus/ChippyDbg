@@ -3,6 +3,9 @@ build/
 bin/
 obj/
 
+# Test ROMs
+roms/IBM_Logo.ch8
+
 # Compiled files
 *.o
 *.a
