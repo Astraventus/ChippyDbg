@@ -417,8 +417,8 @@ bool chip8_load_rom(Chip8* chip, const char* path) {
         fprintf(stderr, "ERROR: Invalid instance of Chip-8 emulator during loading of ROM\n");
         return false;
     }
-    if (!path) {
-        fprintf(stderr, "ERROR: Invalid or absent path to ROM during the loading of ROM\n");
+    if (!path || path[0] == '\0') {
+        fprintf(stderr, "ERROR: Invalid or absent path to ROM\n");
         return false;
     }
 

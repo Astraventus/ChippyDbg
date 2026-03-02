@@ -26,7 +26,6 @@ chip8_test
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-Makefile
 
 # Test ROMs (if you want to exclude them)
 # roms/*.ch8

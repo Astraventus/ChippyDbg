@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     const char* rom_path = NULL;
 
     // parse arguments
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--debug") == 0) {
             debug_mode = true;
         } 
@@ -64,6 +64,9 @@ int main(int argc, char* argv[]) {
             chip8_destroy(&chip);
             return 1;
         }
+    } else {
+        fprintf(stderr, "HALT: No rom path provided!\n");
+        return 0;
     }
 
     // main loop
