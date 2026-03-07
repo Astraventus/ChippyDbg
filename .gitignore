@@ -4,13 +4,14 @@ bin/
 obj/
 
 # Test ROMs
-roms/IBM_Logo.ch8
+roms/
 
 # Compiled files
 *.o
 *.a
 *.so
 *.exe
+*.ini
 chip8_debugger
 chip8_test
 
