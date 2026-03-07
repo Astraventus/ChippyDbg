@@ -3,7 +3,9 @@
 
 #include "chip8.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 // TODO IN THE FUTURE: put logging into log files after the end of the program
 
 // global argument bools assurance; The logging supposed to activate upon the status of two global booleans
@@ -25,5 +27,9 @@ void chip8_log_screen(Chip8* chip);
 
 // halt
 void chip8_log_halt(Chip8* chip, const char* reason);
+
+#ifdef __cplusplus
+}
+#endif
 
 # endif

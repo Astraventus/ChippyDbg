@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CHIP8_MEMORY_SIZE    4096
 #define CHIP8_DISPLAY_WIDTH  64
 #define CHIP8_DISPLAY_HEIGHT 32
@@ -203,5 +207,9 @@ uint16_t chip8_read_opcode(Chip8* chip, uint16_t address);
     buffer is to write a string and it shall not be less than 64 bit.
 */
 void chip8_disassemble(Chip8* chip, uint16_t address, char* buffer, size_t bufsize);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
