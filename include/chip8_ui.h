@@ -43,7 +43,7 @@ typedef struct {
     Allocate nd initialize UI.
     No ROM loaded yet.
 */
-Chip8UI chip8_ui_create(void);
+Chip8UI* chip8_ui_create(void);
 
 /*
     Destroy the UI and emulator it owns.
@@ -55,7 +55,7 @@ void chip8_ui_destroy(Chip8UI** ui_ptr);
 /*
     load ROM at path, replacing any ROM it currently has. 
 */
-void chip8_ui_load_rom(Chip8UI* ui, const char* path);
+bool chip8_ui_load_rom(Chip8UI* ui, const char* path);
 
 /*
     unload current ROM, destroy the emulator.
