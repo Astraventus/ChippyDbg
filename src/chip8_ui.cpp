@@ -25,6 +25,328 @@ static GLuint create_display_texture() {
     return tex;
 }
 
+static void upload_display_texture(Chip8UI* ui) {
+    const bool* display = chip8_get_display(ui->chip);
+    if (!display) return;
+
+    static uint8_t pixels[CHIP8_DISPLAY_WIDTH * CHIP8_DISPLAY_HEIGHT * 4];
+    for (int i = 0; i < CHIP8_DISPLAY_HEIGHT * CHIP8_DISPLAY_WIDTH; i++) {
+        uint8_t v = display[i] ? 0xFF : 0x00;
+        pixels[i*4+0] = v;
+        pixels[i*4+1] = v;
+        pixels[i*4+2] = v;
+        pixels[i*4+3] = 0xFF;
+    }
+    glBindTexture(GL_TEXTURE_2D, ui->display_texture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                    CHIP8_DISPLAY_WIDTH, CHIP8_DISPLAY_HEIGHT,
+                    GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+static void render_controls(Chip8UI* ui) {
+    if (!ui) return;
+
+    ImGui::Begin("Controls", &ui->show_controls, ImGuiWindowFlags_AlwaysAutoResize);
+
+    // ROM
+    ImGui::SeparatorText("ROM");
+
+    if (ImGui::Button("Load ROM", ImVec2(160, 0))) {
+        // TODO: real file dialog;
+        chip8_ui_load_rom(ui, "roms/Astro_Dodge_[Revival_Studios_2008].ch8");
+    }
+
+    ImGui::SameLine(0, 8);
+
+    bool has_rom = (ui->chip != nullptr);
+    if (!has_rom) ImGui::BeginDisabled();
+
+    if (ImGui::Button("Reload", ImVec2(80, 0))) {
+        chip8_ui_load_rom(ui, ui->rom_path);
+    }
+
+    ImGui::SameLine(0, 8);
+
+    if (ImGui::Button("Close", ImVec2(80, 0))) {
+        chip8_ui_close_rom(ui);
+    }
+
+    if (!has_rom) ImGui::EndDisabled();
+
+    if (has_rom) {
+        ImGui::Text("Loaded: %s", ui->rom_path);
+    } else {
+        ImGui::TextDisabled("No ROM loaded");
+    }
+
+    // Execution
+    ImGui::SeparatorText("Execution");
+
+    if (!has_rom) ImGui::BeginDisabled();
+
+    const char* run_label = ui->running ? "Pause##run" : "Run##run";
+    if (ImGui::Button(run_label, ImVec2(80, 0))) {
+        ui->running = !ui->running;
+    }
+
+    ImGui::SameLine(0, 8);
+
+    if (ImGui::Button("Step", ImVec2(80, 0))) {
+        ui->running = false;
+        chip8_step(ui->chip);
+    }
+
+    ImGui::SameLine(0, 8);
+
+    char step_n_label[32];
+    snprintf(step_n_label, sizeof(step_n_label), "Step %d##stepn", ui->step_count);
+    if (ImGui::Button(step_n_label, ImVec2(80, 0))) {
+        ui->running = false;
+        chip8_step_n(ui->chip, ui->step_count);
+    }
+    ImGui::SameLine(0, 8);
+    ImGui::SetNextItemWidth(100);
+    ImGui::InputInt("##step_count", &ui->step_count, 1, 10);
+
+    if (ImGui::Button("Reset", ImVec2(80, 0))) {
+        ui->running = false;
+        chip8_reset(ui->chip);
+    }
+
+    if (!has_rom) ImGui::EndDisabled();
+
+    // Status
+    ImGui::SeparatorText("Status");
+
+    if (has_rom) {
+        const char* status;
+        if (chip8_is_halted(ui->chip))  status = "HALTED";
+        else if (ui->running)           status = "running";
+        else                            status = "paused";
+
+        ImGui::Text("State: %s", status);
+        ImGui::Text("Cycles: %llu", (unsigned long long)chip8_get_cycle_count(ui->chip));
+        ImGui::Text("Speed: %d cycles/frame", ui->cycles_per_frame);
+        ImGui::SetNextItemWidth(160);
+        ImGui::SliderInt("##speed", &ui->cycles_per_frame, 1, 100, "%d cycles/frame");
+    } else {
+        ImGui::TextDisabled("Load a ROM to begin");
+    }
+
+    ImGui::End();
+}
+
+static void render_cpu_state(Chip8UI* ui) {
+    if (!ui || !ui->chip) return;
+
+    ImGui::Begin("CPU State", &ui->show_cpu_state);
+
+    ImGui::SeparatorText("Registers");
+    ImGui::Text("PC : 0x%03X (%d)", chip8_get_pc(ui->chip), chip8_get_pc(ui->chip));
+    ImGui::Text("I  : 0x%03X (%d)", chip8_get_i(ui->chip), chip8_get_i(ui->chip));
+    ImGui::Text("SP : 0x%03X (%d)", chip8_get_sp(ui->chip), chip8_get_sp(ui->chip));
+
+    ImGui::SeparatorText("Timers");
+    ImGui::Text("Delay  : %d", chip8_get_delay_timer(ui->chip));
+    ImGui::Text("Sound  : %d", chip8_get_sound_timer(ui->chip));
+
+    ImGui::SeparatorText("V0-VF");
+    ImGui::Columns(4, "vregs", true);
+    ImGui::Text("Reg"); ImGui::NextColumn();
+    ImGui::Text("Hex"); ImGui::NextColumn();
+    ImGui::Text("Dec"); ImGui::NextColumn();
+    ImGui::Text("Bin"); ImGui::NextColumn();
+    ImGui::Separator();
+
+    for (int i = 16; i < CHIP8_NUM_REGISTERS; i++) {
+        uint8_t v = chip8_get_register(ui->chip, i);
+
+        ImGui::Text("V%0X", i); ImGui::NextColumn();
+        ImGui::Text("0x%02X", v); ImGui::NextColumn();
+        ImGui::Text("%d", v); ImGui::NextColumn();
+        ImGui::Text("%c%c%c%c%c%c%c%c",
+            (v&0x80)?'1':'0',(v&0x40)?'1':'0',
+            (v&0x20)?'1':'0',(v&0x10)?'1':'0',
+            (v&0x08)?'1':'0',(v&0x04)?'1':'0',
+            (v&0x02)?'1':'0',(v&0x01)?'1':'0'
+        ); ImGui::NextColumn();
+    }
+
+    ImGui::Columns(1, nullptr, false);
+
+    ImGui::SeparatorText("Call Stack");
+    uint8_t sp = chip8_get_sp(ui->chip);
+    if (sp == 0) {
+        ImGui::TextDisabled("(Empty)");
+    } else {
+        for (int i = sp - 1; i >= 0; i--) {
+            ImGui::Text("[%d] 0x%03X", i, chip8_get_stack(ui->chip, i));
+        }
+    }
+
+    ImGui::End();
+}
+
+
+static void render_display(Chip8UI* ui) {
+    if (!ui->show_display) return;
+
+    ImGui::Begin("Display", &ui->show_display, 0);
+
+    if (!ui->chip) {
+        ImGui::TextDisabled("No ROM Loaded");
+        ImGui::End();
+        return;
+    }
+    
+    int w = CHIP8_DISPLAY_WIDTH * ui->display_scale;
+    int h = CHIP8_DISPLAY_HEIGHT * ui->display_scale;
+
+    if (chip8_should_draw(ui->chip)) {
+        upload_display_texture(ui);
+    }
+
+    ImGui::Image((ImTextureID)(intptr_t)ui->display_texture, ImVec2(w,h), 
+    ImVec2(0,0), ImVec2(1,1));
+
+    ImGui::SetNextItemWidth(w);
+    ImGui::SliderFloat("##scale", &ui->display_scale, 1.0f, 20.0f, "Scale: %.1fx");
+
+    ImGui::End();
+}
+
+static void render_memory(Chip8UI* ui) {
+    if (!ui || !ui->chip) return;
+
+    ImGui::Begin("Memory", &ui->show_memory);
+
+    ImGui::SetNextItemWidth(200);
+    ImGui::SliderInt("Cols##mem", &ui->memory_cols, 1, 16, "%d bytes/row");
+
+    const uint8_t* mem = chip8_get_memory(ui->chip);
+    uint16_t pc = chip8_get_pc(ui->chip);
+
+    ImGui::BeginChild("MemScroll");
+
+    int cols = ui->memory_cols;
+    int rows = CHIP8_MEMORY_SIZE / cols;
+
+    for (int r = 0; r < rows; r++) {
+        int base = r * cols;
+        
+        bool is_pc_row = (pc >= base && pc < base + cols);
+
+        if (is_pc_row) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        }
+
+        ImGui::Text("0x%03X |", base);
+        ImGui::SameLine(0, 2);
+
+        for (int c = 0; c < cols; c++) {
+            uint16_t addr = (uint16_t)(base+c);
+
+            if (pc == addr) {
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ">%02X", mem[addr]);
+            } else {
+                ImGui::Text("%02X", mem[addr]);
+            }
+            ImGui::SameLine(0, 2);
+        }
+
+        ImGui::NewLine();
+
+        if (is_pc_row) {
+            ImGui::PopStyleColor();
+        }
+    }
+
+    ImGui::EndChild();
+    ImGui::End();
+}
+
+static void render_disassembly(Chip8UI* ui) {
+    if (!ui->show_disassembly || !ui->chip) return;
+
+    ImGui::Begin("Disassembly", &ui->show_disassembly);
+    ImGui::Checkbox("Follow PC", &ui->follow_pc);
+
+    ImGui::BeginChild("DisasmScroll");
+
+    uint16_t pc = chip8_get_pc(ui->chip);
+
+    for (int addr = 0x200; addr < CHIP8_MEMORY_SIZE - 1; addr += 2) {
+        bool is_pc = ((uint16_t)addr == pc);
+
+        if (is_pc) {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+            if (ui->follow_pc)
+                ImGui::SetScrollHereY(0.5f);
+        }
+
+        uint16_t opcode = chip8_read_opcode(ui->chip, (uint16_t)addr);
+        char disasm[64];
+        chip8_disassemble(ui->chip, (uint16_t)addr, disasm, sizeof(disasm));
+
+        ImGui::Text("%c 0x%03X | %04X | %s",
+                    is_pc ? '>' : ' ', addr, opcode, disasm);
+
+        if (is_pc)
+            ImGui::PopStyleColor();
+    }
+
+    ImGui::EndChild();
+    ImGui::End();
+}
+
+static void render_keyboard(Chip8UI* ui) {
+    if (!ui->show_keyboard) return;
+
+    ImGui::Begin("Keyboard", &ui->show_keyboard,
+                 ImGuiWindowFlags_AlwaysAutoResize);
+
+    if (!ui->chip) {
+        ImGui::TextDisabled("No ROM loaded");
+        ImGui::End();
+        return;
+    }
+
+    // CHIP-8 keypad layout
+    static const uint8_t layout[4][4] = {
+        {0x1, 0x2, 0x3, 0xC},
+        {0x4, 0x5, 0x6, 0xD},
+        {0x7, 0x8, 0x9, 0xE},
+        {0xA, 0x0, 0xB, 0xF},
+    };
+
+    ImVec2 btn(55, 55);
+
+    for (int row = 0; row < 4; row++) {
+        for (int col = 0; col < 4; col++) {
+            uint8_t key = layout[row][col];
+            if (col > 0) ImGui::SameLine(0, 4);
+
+            bool pressed = chip8_is_key_pressed(ui->chip, key);
+            if (pressed)
+                ImGui::PushStyleColor(ImGuiCol_Button,
+                                      ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+
+            char label[8];
+            snprintf(label, sizeof(label), "%X##k%X", key, key);
+            ImGui::Button(label, btn);
+
+            if (ImGui::IsItemActivated())   chip8_key_press(ui->chip, key);
+            if (ImGui::IsItemDeactivated()) chip8_key_release(ui->chip, key);
+
+            if (pressed) ImGui::PopStyleColor();
+        }
+    }
+
+    ImGui::End();
+}
+
 // === PUBLIC API ===
 
 Chip8UI* chip8_ui_create() {
@@ -51,7 +373,7 @@ Chip8UI* chip8_ui_create() {
     ui->show_controls = true;
     ui->show_cpu_state = true;
     ui->show_display = true;
-    ui->show_dissasembly = true;
+    ui->show_disassembly = true;
     ui->show_keyboard = true;
     ui->show_memory = true;
 
@@ -97,4 +419,47 @@ void chip8_ui_close_rom(Chip8UI* ui) {
     }
     ui->running = false;
     ui->rom_path[0] = '\0';
+}
+
+void chip8_ui_update(Chip8UI* ui) {
+    if (!ui || !ui->chip || !ui->running) return;
+    if (chip8_is_halted(ui->chip)) {return; }
+
+    for (int i = 0; i < ui->cycles_per_frame; i++) {
+        if (!chip8_step(ui->chip)) break;
+    }
+
+    chip8_update_timers(ui->chip);
+}
+
+void chip8_ui_render(Chip8UI* ui) {
+    if (!ui) return;
+    render_controls(ui);
+    render_display(ui);
+    render_cpu_state(ui);
+    render_memory(ui);
+    render_disassembly(ui);
+    render_keyboard(ui);
+}
+
+void chip8_ui_process_keyboard(Chip8UI* ui, GLFWwindow* window) {
+    if (!ui || !ui->chip) return;
+
+    static const struct { int glfw; uint8_t chip8; } map[] = {
+        { GLFW_KEY_1, 0x1 }, { GLFW_KEY_2, 0x2 },
+        { GLFW_KEY_3, 0x3 }, { GLFW_KEY_4, 0xC },
+        { GLFW_KEY_Q, 0x4 }, { GLFW_KEY_W, 0x5 },
+        { GLFW_KEY_E, 0x6 }, { GLFW_KEY_R, 0xD },
+        { GLFW_KEY_A, 0x7 }, { GLFW_KEY_S, 0x8 },
+        { GLFW_KEY_D, 0x9 }, { GLFW_KEY_F, 0xE },
+        { GLFW_KEY_Z, 0xA }, { GLFW_KEY_X, 0x0 },
+        { GLFW_KEY_C, 0xB }, { GLFW_KEY_V, 0xF },
+    };
+
+    for (int i = 0; i < 16; i++) {
+        if (glfwGetKey(window, map[i].glfw) == GLFW_PRESS)
+            chip8_key_press(ui->chip,   map[i].chip8);
+        else
+            chip8_key_release(ui->chip, map[i].chip8);
+    }
 }
