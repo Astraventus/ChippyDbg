@@ -116,11 +116,6 @@ static void render_controls(Chip8UI* ui) {
     ImGui::SetNextItemWidth(100);
     ImGui::InputInt("##step_count", &ui->step_count, 1, 10);
 
-    if (ImGui::Button("Reset", ImVec2(80, 0))) {
-        ui->running = false;
-        chip8_reset(ui->chip);
-    }
-
     if (!has_rom) ImGui::EndDisabled();
 
     // Status
@@ -407,6 +402,11 @@ void chip8_ui_destroy(Chip8UI** ui_ptr) {
 
 bool chip8_ui_load_rom(Chip8UI* ui, const char* path) {
     if (!ui || !path) return false;
+
+    char path_copy[256];
+    strncpy(path_copy, path, sizeof(path_copy) - 1);
+    path_copy[sizeof(path_copy) - 1] = '\0';
+
     chip8_ui_close_rom(ui);
 
     ui->chip = chip8_create();
@@ -415,13 +415,14 @@ bool chip8_ui_load_rom(Chip8UI* ui, const char* path) {
         return false;
     }
 
-    if (!chip8_load_rom(ui->chip, path)) {
+    if (!chip8_load_rom(ui->chip, path_copy)) {
         fprintf(stderr, "chip8_ui_load_rom: Failed to load ROM into chip8 instance\n");
         chip8_destroy(&ui->chip);
         return false;
     }
 
-    strncpy(ui->rom_path, path, sizeof(ui->rom_path) - 1);
+    strncpy(ui->rom_path, path_copy, sizeof(ui->rom_path) - 1);
+    ui->rom_path[sizeof(ui->rom_path) - 1] = '\0';
     ui->running = false;
     return true;
 }
