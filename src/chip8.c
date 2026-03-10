@@ -398,18 +398,17 @@ void chip8_destroy(Chip8** chip_ptr) {
 }
 
 void chip8_reset(Chip8* chip) {
-    if (!chip) {
-        return;
-    }
+    if (!chip) return;
 
     char rom_path_temp[256];
     strncpy(rom_path_temp, chip->rom_path, sizeof(rom_path_temp) - 1);
-    size_t rom_size_temp = chip->rom_size;
+    rom_path_temp[sizeof(rom_path_temp) - 1] = '\0';
 
     chip8_init_state(chip);
 
-    chip->rom_size = rom_size_temp;
-    strncpy(chip->rom_path, rom_path_temp, sizeof(chip->rom_path));
+    if (rom_path_temp[0] != '\0') {
+        chip8_load_rom(chip, rom_path_temp);
+    }
 }
 
 bool chip8_load_rom(Chip8* chip, const char* path) {
