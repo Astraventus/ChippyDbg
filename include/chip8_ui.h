@@ -12,6 +12,7 @@
 #include "../libs/imgui/imgui.h"
 #include "../libs/imgui/backends/imgui_impl_glfw.h"
 #include "../libs/imgui/backends/imgui_impl_opengl3.h"
+#include "../libs/tinyfiledialogs/tinyfiledialogs.h"
 
 typedef struct {
     // emulator

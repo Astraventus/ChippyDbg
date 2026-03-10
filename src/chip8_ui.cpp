@@ -44,6 +44,14 @@ static void upload_display_texture(Chip8UI* ui) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+static void open_rom_dialog(Chip8UI* ui) {
+    const char* filter_patterns[] = { "*.ch8", "*.c8", "*.rom" };
+    const char* path = tinyfd_openFileDialog(
+        "Load CHIP-8 ROM", "", 3, filter_patterns, "CHIP-8 ROM files", 0
+    );
+    if (path) chip8_ui_load_rom(ui, path);
+}
+
 static void render_controls(Chip8UI* ui) {
     if (!ui) return;
 
@@ -53,8 +61,7 @@ static void render_controls(Chip8UI* ui) {
     ImGui::SeparatorText("ROM");
 
     if (ImGui::Button("Load ROM", ImVec2(160, 0))) {
-        // TODO: real file dialog;
-        chip8_ui_load_rom(ui, "/home/volodymyr/Projects/Primary/ChippyDbg/roms/Astro_Dodge_[Revival_Studios_2008].ch8");
+        open_rom_dialog(ui);
     }
 
     ImGui::SameLine(0, 8);
@@ -494,7 +501,7 @@ void render_dockspace(Chip8UI* ui) {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Load ROM...", "Ctrl+O")) {
-                // TODO
+                open_rom_dialog(ui);
             }
             if (ImGui::MenuItem("Close ROM", "Ctrl+W", false, ui->chip != nullptr)) {
                 chip8_ui_close_rom(ui);
