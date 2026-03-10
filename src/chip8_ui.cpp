@@ -54,7 +54,7 @@ static void render_controls(Chip8UI* ui) {
 
     if (ImGui::Button("Load ROM", ImVec2(160, 0))) {
         // TODO: real file dialog;
-        chip8_ui_load_rom(ui, "roms/Astro_Dodge_[Revival_Studios_2008].ch8");
+        chip8_ui_load_rom(ui, "/home/volodymyr/Projects/Primary/ChippyDbg/roms/Astro_Dodge_[Revival_Studios_2008].ch8");
     }
 
     ImGui::SameLine(0, 8);
@@ -159,7 +159,7 @@ static void render_cpu_state(Chip8UI* ui) {
     ImGui::Text("Bin"); ImGui::NextColumn();
     ImGui::Separator();
 
-    for (int i = 16; i < CHIP8_NUM_REGISTERS; i++) {
+    for (int i = 0; i < CHIP8_NUM_REGISTERS; i++) {
         uint8_t v = chip8_get_register(ui->chip, i);
 
         ImGui::Text("V%0X", i); ImGui::NextColumn();
@@ -248,13 +248,21 @@ static void render_memory(Chip8UI* ui) {
             uint16_t addr = (uint16_t)(base+c);
 
             if (pc == addr) {
-                ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ">%02X", mem[addr]);
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), ">%02X", mem[addr]);
             } else {
                 ImGui::Text("%02X", mem[addr]);
             }
             ImGui::SameLine(0, 2);
         }
 
+        ImGui::Text("| ");
+        ImGui::SameLine(0, 0);
+        for (int c = 0; c < cols; c++)
+        {
+            uint8_t byte = mem[base + c];
+            ImGui::Text("%c", (byte >= 32 && byte < 127) ? byte : '.');
+            ImGui::SameLine(0, 0);
+        }
         ImGui::NewLine();
 
         if (is_pc_row) {
@@ -391,7 +399,7 @@ void chip8_ui_destroy(Chip8UI** ui_ptr) {
 }
 
 bool chip8_ui_load_rom(Chip8UI* ui, const char* path) {
-    if (!ui || path) return false;
+    if (!ui || !path) return false;
     chip8_ui_close_rom(ui);
 
     ui->chip = chip8_create();
@@ -462,4 +470,58 @@ void chip8_ui_process_keyboard(Chip8UI* ui, GLFWwindow* window) {
         else
             chip8_key_release(ui->chip, map[i].chip8);
     }
+}
+
+void render_dockspace(Chip8UI* ui) {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+    window_flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+    ImGui::Begin("DockSpace", nullptr, window_flags);
+    ImGui::PopStyleVar(3);
+
+    // Menu bar inside dockspace
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Load ROM...", "Ctrl+O")) {
+                // TODO
+            }
+            if (ImGui::MenuItem("Close ROM", "Ctrl+W", false, ui->chip != nullptr)) {
+                chip8_ui_close_rom(ui);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Exit", "Ctrl+Q")) {
+                ui->exit_requested = true;
+            }
+            ImGui::EndMenu();
+        }
+        
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Controls",    nullptr, &ui->show_controls);
+            ImGui::MenuItem("Display",     nullptr, &ui->show_display);
+            ImGui::MenuItem("CPU State",   nullptr, &ui->show_cpu_state);
+            ImGui::MenuItem("Memory",      nullptr, &ui->show_memory);
+            ImGui::MenuItem("Disassembly", nullptr, &ui->show_disassembly);
+            ImGui::MenuItem("Keyboard",    nullptr, &ui->show_keyboard);
+            ImGui::EndMenu();
+        }
+        
+        ImGui::EndMenuBar();
+    }
+
+    // Create dockspace
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+
+    ImGui::End();
 }

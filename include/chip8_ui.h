@@ -1,6 +1,9 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h> 
+#include <string.h>
 
 #include "chip8.h"
 
@@ -35,6 +38,9 @@ typedef struct {
     bool show_cpu_state;
     bool show_keyboard;
     bool show_disassembly;
+
+    // window exit 
+    bool exit_requested;
 } Chip8UI;
 
 // == Lifecycle ==
@@ -80,4 +86,8 @@ void chip8_ui_render(Chip8UI* ui);
 /*
     Map physical keyboard -> CHIP8 keyboard state through GLFW state.
 */
-void chip8_ui_process_keyboard(Chip8UI ui, GLFWwindow* window);
+void chip8_ui_process_keyboard(Chip8UI* ui, GLFWwindow* window);
+
+// == GUI Setup ==
+
+void render_dockspace(Chip8UI* ui);
