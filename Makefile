@@ -3,20 +3,21 @@ CC      = gcc
 CXXFLAGS = -Wall -Wextra -std=c++17 -g
 CFLAGS   = -Wall -Wextra -std=c11   -g
 LDFLAGS  = -lglfw -lGL -ldl -lm
-
 DEFINES  = -DIMGUI_IMPL_OPENGL_LOADER_GLAD
-
 INCLUDES = -Iinclude \
            -Ilibs/imgui \
            -Ilibs/imgui/backends \
-           -Ilibs/glad/include
+           -Ilibs/glad/include \
+           -Ilibs/tinyfiledialogs
+
+BUILD_DIR = build
 
 # ── Sources ──────────────────────────────────────────────────
-
 C_SRCS = \
     src/chip8.c \
     src/chip8_log.c \
-    libs/glad/src/glad.c
+    libs/glad/src/glad.c \
+    libs/tinyfiledialogs/tinyfiledialogs.c
 
 CXX_SRCS = \
     src/main.cpp \
@@ -30,29 +31,28 @@ CXX_SRCS = \
     libs/imgui/backends/imgui_impl_opengl3.cpp
 
 # ── Object files ─────────────────────────────────────────────
-
-C_OBJS   = $(C_SRCS:.c=.o)
-CXX_OBJS = $(CXX_SRCS:.cpp=.o)
-
-TARGET = chip8dbg
+C_OBJS   = $(patsubst %.c,   $(BUILD_DIR)/%.o, $(C_SRCS))
+CXX_OBJS = $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(CXX_SRCS))
+TARGET   = $(BUILD_DIR)/chip8dbg
 
 # ── Rules ────────────────────────────────────────────────────
-
 all: $(TARGET)
 
 $(TARGET): $(C_OBJS) $(CXX_OBJS)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
-%.o: %.c
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
 
-%.o: %.cpp
+$(BUILD_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
 
 run: all
 	./$(TARGET)
 
 clean:
-	rm -f $(C_OBJS) $(CXX_OBJS) $(TARGET)
+	rm -rf $(BUILD_DIR)
 
 .PHONY: all run clean
