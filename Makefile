@@ -1,84 +1,58 @@
-# ============================================================
-# ChippyDbg — Makefile
-# ============================================================
+CXX     = g++
+CC      = gcc
+CXXFLAGS = -Wall -Wextra -std=c++17 -g
+CFLAGS   = -Wall -Wextra -std=c11   -g
+LDFLAGS  = -lglfw -lGL -ldl -lm
 
-# ── Compilers ────────────────────────────────────────────────
-CC  = gcc        # for .c files
-CXX = g++        # for .cpp files (imgui / cimgui are C++)
+DEFINES  = -DIMGUI_IMPL_OPENGL_LOADER_GLAD
 
-# ── Flags ────────────────────────────────────────────────────
-CFLAGS   = -Wall -Wextra -Werror -std=c17   -g
-CXXFLAGS = -Wall -Wextra         -std=c++17 -g   # imgui doesn't play nice with -Werror
-
-# Defines needed so cimgui_impl knows which backends are compiled in,
-# and so imgui_impl_opengl3 uses glad as its OpenGL loader.
-DEFINES  = -DCIMGUI_USE_GLFW \
-           -DCIMGUI_USE_OPENGL3 \
-           -DIMGUI_IMPL_OPENGL_LOADER_GLAD
-
-# ── Include paths ─────────────────────────────────────────────
 INCLUDES = -Iinclude \
            -Ilibs/imgui \
-           -Ilibs/cimgui \
+           -Ilibs/imgui/backends \
            -Ilibs/glad/include
 
-# ── Linker flags ─────────────────────────────────────────────
-# -lglfw    window + input
-# -lGL      OpenGL
-# -ldl      needed by glad at runtime (dynamic loading)
-# -lm       math
-# -lstdc++  C++ runtime (imgui is C++, our binary is C)
-LDFLAGS  = -lglfw -lGL -ldl -lm -lstdc++
+# ── Sources ──────────────────────────────────────────────────
 
-# ── Target ───────────────────────────────────────────────────
-TARGET = chip8
+C_SRCS = \
+    src/chip8.c \
+    src/chip8_log.c \
+    libs/glad/src/glad.c
 
-# ── Source files ─────────────────────────────────────────────
-
-# Your C sources
-C_SRCS = src/main.c \
-         src/chip8.c \
-         src/chip8_log.c \
-         src/chip8_ui.c \
-         libs/glad/src/glad.c
-
-# C++ sources — imgui core + glfw/opengl3 backends + cimgui C wrappers
-CXX_SRCS = libs/imgui/imgui.cpp \
-           libs/imgui/imgui_draw.cpp \
-           libs/imgui/imgui_tables.cpp \
-           libs/imgui/imgui_widgets.cpp \
-           libs/imgui/imgui_demo.cpp \
-           libs/imgui/imgui_impl_glfw.cpp \
-           libs/imgui/imgui_impl_opengl3.cpp \
-           libs/cimgui/cimgui.cpp \
-           libs/cimgui/cimgui_impl.cpp
+CXX_SRCS = \
+    src/main.cpp \
+    src/chip8_ui.cpp \
+    libs/imgui/imgui.cpp \
+    libs/imgui/imgui_draw.cpp \
+    libs/imgui/imgui_tables.cpp \
+    libs/imgui/imgui_widgets.cpp \
+    libs/imgui/imgui_demo.cpp \
+    libs/imgui/backends/imgui_impl_glfw.cpp \
+    libs/imgui/backends/imgui_impl_opengl3.cpp
 
 # ── Object files ─────────────────────────────────────────────
+
 C_OBJS   = $(C_SRCS:.c=.o)
 CXX_OBJS = $(CXX_SRCS:.cpp=.o)
-OBJS     = $(C_OBJS) $(CXX_OBJS)
 
-# ── Rules ─────────────────────────────────────────────────────
+TARGET = chip8dbg
 
-.PHONY: all clean run
+# ── Rules ────────────────────────────────────────────────────
 
 all: $(TARGET)
 
-# Link — gcc can link C++ .o files as long as we pass -lstdc++
-$(TARGET): $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+$(TARGET): $(C_OBJS) $(CXX_OBJS)
+	$(CXX) $^ -o $@ $(LDFLAGS)
 
-# Compile .c → .o
 %.o: %.c
-	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) -c -o $@ $<
+	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
 
-# Compile .cpp → .o
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
 
-# ── Convenience ───────────────────────────────────────────────
 run: all
-	./$(TARGET) roms/IBM_Logo.ch8
+	./$(TARGET)
 
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(C_OBJS) $(CXX_OBJS) $(TARGET)
+
+.PHONY: all run clean
