@@ -34,7 +34,7 @@ typedef struct {
     bool show_display;
     bool show_cpu_state;
     bool show_keyboard;
-    bool show_dissasembly;
+    bool show_disassembly;
 } Chip8UI;
 
 // == Lifecycle ==
