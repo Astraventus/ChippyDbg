@@ -201,19 +201,30 @@ static void render_display(Chip8UI* ui) {
         ImGui::End();
         return;
     }
-    
-    int w = CHIP8_DISPLAY_WIDTH * ui->display_scale;
-    int h = CHIP8_DISPLAY_HEIGHT * ui->display_scale;
 
     if (chip8_should_draw(ui->chip)) {
         upload_display_texture(ui);
     }
 
-    ImGui::Image((ImTextureID)(intptr_t)ui->display_texture, ImVec2(w,h), 
-    ImVec2(0,0), ImVec2(1,1));
+    ImVec2 available = ImGui::GetContentRegionAvail();
 
-    ImGui::SetNextItemWidth(w);
-    ImGui::SliderFloat("##scale", &ui->display_scale, 1.0f, 20.0f, "Scale: %.1fx");
+    // Maintain 2:1 aspect ratio (64x32)
+    float aspect = (float)CHIP8_DISPLAY_WIDTH / (float)CHIP8_DISPLAY_HEIGHT;
+    float w = available.x;
+    float h = w / aspect;
+
+    if (h > available.y) {
+        h = available.y;
+        w = h * aspect;
+    }
+
+    // Center horizontally
+    float offset_x = (available.x - w) * 0.5f;
+    if (offset_x > 0)
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset_x);
+
+    ImGui::Image((ImTextureID)(intptr_t)ui->display_texture, ImVec2(w, h),
+                 ImVec2(0, 0), ImVec2(1, 1));
 
     ImGui::End();
 }
