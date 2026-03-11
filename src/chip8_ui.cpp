@@ -251,7 +251,7 @@ static void render_memory(Chip8UI* ui) {
         bool is_pc_row = (pc >= base && pc < base + cols);
 
         if (is_pc_row) {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
         }
 
         ImGui::Text("0x%03X |", base);
