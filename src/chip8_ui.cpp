@@ -53,7 +53,7 @@ static void open_rom_dialog(Chip8UI* ui) {
 }
 
 static void render_controls(Chip8UI* ui) {
-    if (!ui) return;
+    if (!ui || !ui->show_controls) return;
 
     ImGui::Begin("Controls", &ui->show_controls, ImGuiWindowFlags_AlwaysAutoResize);
 
@@ -140,7 +140,7 @@ static void render_controls(Chip8UI* ui) {
 }
 
 static void render_cpu_state(Chip8UI* ui) {
-    if (!ui || !ui->chip) return;
+    if (!ui || !ui->chip || !ui->show_cpu_state) return;
 
     ImGui::Begin("CPU State", &ui->show_cpu_state);
 
@@ -230,7 +230,7 @@ static void render_display(Chip8UI* ui) {
 }
 
 static void render_memory(Chip8UI* ui) {
-    if (!ui || !ui->chip) return;
+    if (!ui || !ui->chip || !ui->show_memory) return;
 
     ImGui::Begin("Memory", &ui->show_memory);
 
