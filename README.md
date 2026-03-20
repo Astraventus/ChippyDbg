@@ -12,9 +12,11 @@ A CHIP-8 emulator with an integrated debugger, built with a clean separation bet
 - Virtual keyboard with live key state display
 - ROM loading via native file dialog
 
-## Dependencies
+Dependencies
 
 GLFW must be installed on your system. Everything else (ImGui, GLAD, tinyfiledialogs) is vendored under `libs/`.
+
+### Unix-like systems
 
 | Platform | Command |
 |---|---|
@@ -23,6 +25,15 @@ GLFW must be installed on your system. Everything else (ImGui, GLAD, tinyfiledia
 | Arch | `sudo pacman -S glfw` |
 | macOS | `brew install glfw` |
 
+### Windows
+
+For Windows, building GLFW via CMake is recommended.
+
+If you do not have CMake:
+- Install CMake from [cmake.org/download](https://cmake.org/download/)
+- Or with winget: `winget install Kitware.CMake`
+- Or with Chocolatey: `choco install cmake`
+
 ## Building
 
 **Using Make:**
@@ -30,6 +41,8 @@ GLFW must be installed on your system. Everything else (ImGui, GLAD, tinyfiledia
 make
 make run
 ```
+
+**Prerequisite**: [CMake](https://cmake.org/download/) must be installed on your system.
 
 **Using CMake:**
 ```bash
